@@ -3,6 +3,7 @@
 //
 
 #include <iostream>
+#include <fstream>
 #include "Mesh.h"
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -10,34 +11,58 @@
 
 void Mesh::LoadMesh(const std::string& path)
 {
-    auto scene = importer.ReadFile(path, aiProcess_Triangulate);
+    std::ifstream stream;
+    stream.open(path);
 
-    if (!scene){
-        std::cerr << "Could not load scene" << '\n';
-        std::cerr << importer.GetErrorString() << '\n';
-        std::abort();
+    std::string filetype; stream >> filetype;
+
+    std::cerr << filetype << '\n';
+
+    if (filetype == "OFF"){
+        loadOFF(stream);
     }
+    else if (filetype == "# OBJ"){
+        loadOBJ(stream);
+    }
+}
 
-    mesh = scene->mMeshes[0];
-
-    numVertices = mesh->mNumVertices;
-    numFaces = mesh->mNumFaces;
+void Mesh::loadOFF(std::ifstream& stream)
+{
+    int numVertices, numFaces, nullval;
+    stream >> numVertices; stream >> numFaces; stream >> nullval;
 
     vertices.reserve(numVertices);
     faces.reserve(numFaces);
 
-    for (auto i = 0; i < mesh->mNumVertices; i++){
-        const aiVector3D* pos = &(mesh->mVertices[i]);
-        Vertex v({pos->x, pos->y, pos->z});
-        AddVertex(std::move(v));
+    for (int i = 0; i < numVertices; i++){
+        float x, y, z;
+        stream >> x; stream >> y; stream >> z;
+        vertices.push_back(Vertex({x, y, z}));
     }
 
-    for (unsigned int i = 0 ; i < mesh->mNumFaces ; i++) {
-        const aiFace& Face = mesh->mFaces[i];
-        assert(Face.mNumIndices == 3);
-        Triangle t(Face.mIndices[0], Face.mIndices[1], Face.mIndices[2], *this, i);
-        AddFace(std::move(t));
+    for (int i = 0; i < numFaces; i++){
+        int numVert; stream >> numVert;
+        assert(numVert == 3);
+
+        int a, b, c;
+        stream >> a; stream >> b; stream >> c;
+
+        neighbors[a].push_back(b);
+        neighbors[a].push_back(c);
+
+        neighbors[b].push_back(a);
+        neighbors[b].push_back(c);
+
+        neighbors[c].push_back(a);
+        neighbors[c].push_back(b);
+
+        faces.push_back(Triangle(vertices[a], vertices[b], vertices[c], i));
     }
+}
+
+void Mesh::loadOBJ(std::ifstream& stream)
+{
+    std::cerr << "loading obj " << '\n';
 }
 
 auto Mesh::FindMin(const std::vector<std::pair<int, unsigned int>>& costs)
@@ -55,7 +80,7 @@ auto Mesh::FindMin(const std::vector<std::pair<int, unsigned int>>& costs)
     return vert;
 }
 
-void Mesh::GeodesicDistance(const Vertex& vertex)
+void Mesh::GeodesicDistance(const Vertex& vertex) const
 {
     std::vector<std::pair<int, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<int>::infinity(), 0)); // cost - parent pairs
 
@@ -80,3 +105,33 @@ void Mesh::GeodesicDistance(const Vertex& vertex)
         }
     }
 }
+
+
+//    auto scene = importer.ReadFile(path, aiProcess_Triangulate);
+//
+//    if (!scene){
+//        std::cerr << "Could not load scene" << '\n';
+//        std::cerr << importer.GetErrorString() << '\n';
+//        std::abort();
+//    }
+//
+//    mesh = scene->mMeshes[0];
+//
+//    numVertices = mesh->mNumVertices;
+//    numFaces = mesh->mNumFaces;
+//
+//    vertices.reserve(numVertices);
+//    faces.reserve(numFaces);
+//
+//    for (auto i = 0; i < mesh->mNumVertices; i++){
+//        const aiVector3D* pos = &(mesh->mVertices[i]);
+//        Vertex v({pos->x, pos->y, pos->z});
+//        AddVertex(std::move(v));
+//    }
+//
+//    for (unsigned int i = 0 ; i < mesh->mNumFaces ; i++) {
+//        const aiFace& Face = mesh->mFaces[i];
+//        assert(Face.mNumIndices == 3);
+//        Triangle t(Face.mIndices[0], Face.mIndices[1], Face.mIndices[2], *this, i);
+//        AddFace(std::move(t));
+//    }

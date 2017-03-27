@@ -28,7 +28,12 @@ class Mesh
     std::vector<Triangle> faces;
     std::vector<Vertex> vertices;
 
-    Assimp::Importer importer;
+    std::map<int, std::vector<int>> neighbors;
+
+//    Assimp::Importer importer;
+
+    void loadOFF(std::ifstream& stream);
+    void loadOBJ(std::ifstream& stream);
 
 public:
     Mesh(int mid = 1) : id(mid), mesh(nullptr) {}
@@ -52,7 +57,7 @@ public:
 
     auto GetVertex(unsigned int id) const { return vertices[id]; }
 
-    void GeodesicDistance(const Vertex& vertex);
+    void GeodesicDistance(const Vertex& vertex) const;
     auto FindMin(const std::vector<std::pair<int, unsigned int>>& costs);
 
     auto GetNeighbors(unsigned int id) { return std::vector<Vertex>(); }
