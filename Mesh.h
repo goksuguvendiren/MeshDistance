@@ -46,6 +46,8 @@ public:
     void AddFace(Triangle&& face) {
         faces.push_back(std::move(face));
     }
+    
+    int NumVertices() { return numVertices; }
 
     int ID() const { return id; }
     const std::vector<Triangle>& Faces() const { return faces; }
