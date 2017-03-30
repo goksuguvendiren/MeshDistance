@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <mesh.h>
 #include "glm/glm/glm.hpp"
 #include "Vertex.h"
 

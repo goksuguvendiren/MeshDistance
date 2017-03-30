@@ -13,8 +13,10 @@ class Vertex
     unsigned int id;
 
 public:
-    Vertex(glm::vec3 d = {0, 0, 0}) : data(d){}
+    Vertex(glm::vec3 d, int i) : data(d), id(i){}
 
+    Vertex& operator=(const Vertex& vert) = default;
+    
     auto Data() const { return data; }
     auto ID() const { return id; }
 };

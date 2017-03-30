@@ -4,10 +4,11 @@
 
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include "Mesh.h"
-#include "assimp/Importer.hpp"
-#include "assimp/scene.h"
-#include "assimp/postprocess.h"
+//#include "assimp/Importer.hpp"
+//#include "assimp/scene.h"
+//#include "assimp/postprocess.h"
 
 void Mesh::LoadMesh(const std::string& path)
 {
@@ -28,7 +29,7 @@ void Mesh::LoadMesh(const std::string& path)
 
 void Mesh::loadOFF(std::ifstream& stream)
 {
-    int numVertices, numFaces, nullval;
+    int nullval;
     stream >> numVertices; stream >> numFaces; stream >> nullval;
 
     vertices.reserve(numVertices);
@@ -37,7 +38,7 @@ void Mesh::loadOFF(std::ifstream& stream)
     for (int i = 0; i < numVertices; i++){
         float x, y, z;
         stream >> x; stream >> y; stream >> z;
-        vertices.push_back(Vertex({x, y, z}));
+        vertices.push_back(Vertex({x, y, z}, i));
     }
 
     for (int i = 0; i < numFaces; i++){
@@ -47,15 +48,15 @@ void Mesh::loadOFF(std::ifstream& stream)
         int a, b, c;
         stream >> a; stream >> b; stream >> c;
 
-        neighbors[a].push_back(b);
-        neighbors[a].push_back(c);
-
-        neighbors[b].push_back(a);
-        neighbors[b].push_back(c);
-
-        neighbors[c].push_back(a);
-        neighbors[c].push_back(b);
-
+        addNeighbor(a, b);
+        addNeighbor(a, c);
+        
+        addNeighbor(b, a);
+        addNeighbor(b, c);
+        
+        addNeighbor(c, a);
+        addNeighbor(c, b);
+        
         faces.push_back(Triangle(vertices[a], vertices[b], vertices[c], i));
     }
 }
@@ -65,47 +66,56 @@ void Mesh::loadOBJ(std::ifstream& stream)
     std::cerr << "loading obj " << '\n';
 }
 
-auto Mesh::FindMin(const std::vector<std::pair<int, unsigned int>>& costs)
+auto Mesh::FindMin(const std::vector<std::pair<unsigned int, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const
 {
-    auto min = std::numeric_limits<int>::infinity();
-    Vertex vert;
+    auto min = std::numeric_limits<unsigned int>::max();
+    auto vert = GetVertex(0);
 
-    for (auto cost : costs){
-        if (cost.first < min){
-            min = cost.first;
-            vert = GetVertex(cost.second);
+    for (int i = 0; i < costs.size(); i++){
+        if (!beenProcessed[i] && costs[i].first < min){
+            min = costs[i].first;
+            vert = GetVertex(i);
         }
     }
 
     return vert;
 }
 
-void Mesh::GeodesicDistance(const Vertex& vertex) const
+void Mesh::GeodesicDistance(const Vertex& vert)
 {
-    std::vector<std::pair<int, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<int>::infinity(), 0)); // cost - parent pairs
+    // cost - parent vertex association. parent == -1, means that this node has not been processed.
+    std::vector<std::pair<unsigned int, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<unsigned int>::max(), -1)); // cost - parent pairs
 
+    std::vector<bool> beenProcessed(numVertices, false);
+    int numProcessed = 0;
+    
     int cost = 0;
+    
+    costs[vert.ID()].first = 0;
+    costs[vert.ID()].second = 0;
 
-    auto& node = vertex;
-    costs[node.ID()].first = 0;
-    costs[node.ID()].second = node.ID();
-
-    bool finished = false;
-    while(!finished){
-        auto node = FindMin(costs);
-//        auto& node = vertex;
+    while(numProcessed != numVertices){
+        auto node = FindMin(costs, beenProcessed);
         cost = costs[node.ID()].first;
 
-        auto neighbors = GetNeighbors(node.ID()); //TODO : returns an empty list !! Be careful !
-        for (auto& neighbor : neighbors){
+        auto neighs = GetNeighbors(node.ID());
+        for (auto& n : neighs){
+            auto& neighbor = GetVertex(n);
             if (costs[neighbor.ID()].first > cost + 1){ // assume weight of each vertex to be 1
                 costs[neighbor.ID()].first = cost + 1;
                 costs[neighbor.ID()].second = node.ID();
             }
         }
+        beenProcessed[node.ID()] = true;
+        numProcessed += 1;
     }
+    
+    int max = 0;
+    for_each(costs.begin(), costs.end(), [&max](auto& cost){
+        if (cost.first > max) max = cost.first;
+    });
+    std::cerr << "Finished calculating : " << max << "\n";
 }
-
 
 //    auto scene = importer.ReadFile(path, aiProcess_Triangulate);
 //
