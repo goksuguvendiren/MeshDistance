@@ -66,7 +66,7 @@ void Mesh::loadOBJ(std::ifstream& stream)
     std::cerr << "loading obj " << '\n';
 }
 
-auto Mesh::FindMin(const std::vector<std::pair<unsigned int, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const
+auto Mesh::FindMin(const std::vector<std::pair<float, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const
 {
     auto min = std::numeric_limits<unsigned int>::max();
     auto vert = GetVertex(0);
@@ -84,12 +84,12 @@ auto Mesh::FindMin(const std::vector<std::pair<unsigned int, unsigned int>>& cos
 void Mesh::GeodesicDistance(const Vertex& vert)
 {
     // cost - parent vertex association. parent == -1, means that this node has not been processed.
-    std::vector<std::pair<unsigned int, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<unsigned int>::max(), -1)); // cost - parent pairs
+    std::vector<std::pair<float, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<unsigned int>::max(), -1)); // cost - parent pairs
 
     std::vector<bool> beenProcessed(numVertices, false);
     int numProcessed = 0;
     
-    int cost = 0;
+    int cost;
     
     costs[vert.ID()].first = 0;
     costs[vert.ID()].second = 0;
@@ -101,8 +101,11 @@ void Mesh::GeodesicDistance(const Vertex& vert)
         auto neighs = GetNeighbors(node.ID());
         for (auto& n : neighs){
             auto& neighbor = GetVertex(n);
-            if (costs[neighbor.ID()].first > cost + 1){ // assume weight of each vertex to be 1
-                costs[neighbor.ID()].first = cost + 1;
+            
+            auto distance = node.EuclideanDistance(neighbor);
+            
+            if (costs[neighbor.ID()].first > cost + distance){ // assume weight of each vertex to be 1
+                costs[neighbor.ID()].first = cost + distance;
                 costs[neighbor.ID()].second = node.ID();
             }
         }
@@ -110,7 +113,7 @@ void Mesh::GeodesicDistance(const Vertex& vert)
         numProcessed += 1;
     }
     
-    int max = 0;
+    float max = 0.f;
     for_each(costs.begin(), costs.end(), [&max](auto& cost){
         if (cost.first > max) max = cost.first;
     });

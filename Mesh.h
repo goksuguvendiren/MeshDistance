@@ -56,7 +56,7 @@ public:
     const Vertex& GetVertex(unsigned int id) const { return vertices[id]; }
 
     void GeodesicDistance(const Vertex& vertex);
-    auto FindMin(const std::vector<std::pair<unsigned int, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const;
+    auto FindMin(const std::vector<std::pair<float, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const;
 
     const std::vector<int>& GetNeighbors(unsigned int id) { return neighbors[id]; }
 };
