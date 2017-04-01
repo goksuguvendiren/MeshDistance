@@ -19,6 +19,4 @@ public:
     
     auto Data() const { return data; }
     auto ID() const { return id; }
-    
-    float EuclideanDistance(const Vertex& vert);
 };

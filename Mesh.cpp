@@ -6,11 +6,8 @@
 #include <fstream>
 #include <algorithm>
 #include "Mesh.h"
-//#include "assimp/Importer.hpp"
-//#include "assimp/scene.h"
-//#include "assimp/postprocess.h"
 
-void Mesh::LoadMesh(const std::string& path)
+void Mesh::Load(const std::string& path)
 {
     std::ifstream stream;
     stream.open(path);
@@ -66,9 +63,23 @@ void Mesh::loadOBJ(std::ifstream& stream)
     std::cerr << "loading obj " << '\n';
 }
 
+std::vector<glm::vec3> Mesh::ShortestPath(const Vertex &seed, std::vector<std::pair<float, unsigned int>>&& costs)
+{
+    std::sort(costs.begin(), costs.end(), [](auto& cost1, auto& cost2){
+        return cost1.first < cost2.first;
+    });
+
+    std::vector<glm::vec3> path;
+    std::transform(costs.begin(), costs.end(), path.begin(), [this](auto& cost){
+        return GetVertex(cost.second).Data();
+    });
+
+    return path;
+}
+
 auto Mesh::FindMin(const std::vector<std::pair<float, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const
 {
-    auto min = std::numeric_limits<unsigned int>::max();
+    auto min = std::numeric_limits<float>::max();
     auto vert = GetVertex(0);
 
     for (int i = 0; i < costs.size(); i++){
@@ -81,28 +92,26 @@ auto Mesh::FindMin(const std::vector<std::pair<float, unsigned int>>& costs, con
     return vert;
 }
 
-void Mesh::GeodesicDistance(const Vertex& vert)
+std::vector<std::pair<float, unsigned int>> Mesh::GeodesicDistance(const Vertex& vert)
 {
-    // cost - parent vertex association. parent == -1, means that this node has not been processed.
-    std::vector<std::pair<float, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<unsigned int>::max(), -1)); // cost - parent pairs
-
+    // costs : cost - parent vertex association. parent == -1, means that this node has not been processed.
+    std::vector<std::pair<float, unsigned int>> costs (numVertices, std::make_pair(std::numeric_limits<float>::max(), -1));;
+    
     std::vector<bool> beenProcessed(numVertices, false);
     int numProcessed = 0;
-    
-    int cost;
     
     costs[vert.ID()].first = 0;
     costs[vert.ID()].second = 0;
 
     while(numProcessed != numVertices){
         auto node = FindMin(costs, beenProcessed);
-        cost = costs[node.ID()].first;
+        float cost = costs[node.ID()].first;
 
         auto neighs = GetNeighbors(node.ID());
         for (auto& n : neighs){
             auto& neighbor = GetVertex(n);
             
-            auto distance = node.EuclideanDistance(neighbor);
+            auto distance = glm::length(node.Data() - neighbor.Data());
             
             if (costs[neighbor.ID()].first > cost + distance){ // assume weight of each vertex to be 1
                 costs[neighbor.ID()].first = cost + distance;
@@ -112,39 +121,40 @@ void Mesh::GeodesicDistance(const Vertex& vert)
         beenProcessed[node.ID()] = true;
         numProcessed += 1;
     }
-    
-    float max = 0.f;
-    for_each(costs.begin(), costs.end(), [&max](auto& cost){
-        if (cost.first > max) max = cost.first;
-    });
-    std::cerr << "Finished calculating : " << max << "\n";
+    return costs;
 }
 
-//    auto scene = importer.ReadFile(path, aiProcess_Triangulate);
-//
-//    if (!scene){
-//        std::cerr << "Could not load scene" << '\n';
-//        std::cerr << importer.GetErrorString() << '\n';
-//        std::abort();
-//    }
-//
-//    mesh = scene->mMeshes[0];
-//
-//    numVertices = mesh->mNumVertices;
-//    numFaces = mesh->mNumFaces;
-//
-//    vertices.reserve(numVertices);
-//    faces.reserve(numFaces);
-//
-//    for (auto i = 0; i < mesh->mNumVertices; i++){
-//        const aiVector3D* pos = &(mesh->mVertices[i]);
-//        Vertex v({pos->x, pos->y, pos->z});
-//        AddVertex(std::move(v));
-//    }
-//
-//    for (unsigned int i = 0 ; i < mesh->mNumFaces ; i++) {
-//        const aiFace& Face = mesh->mFaces[i];
-//        assert(Face.mNumIndices == 3);
-//        Triangle t(Face.mIndices[0], Face.mIndices[1], Face.mIndices[2], *this, i);
-//        AddFace(std::move(t));
-//    }
+std::vector<std::vector<std::pair<float, unsigned int>>> Mesh::GenerateDistanceMap()
+{
+    std::vector<std::vector<std::pair<float, unsigned int>>> allCosts;
+    allCosts.reserve(numVertices);
+
+    for (int i = 0; i < NumVertices(); i++){
+        allCosts.push_back(GeodesicDistance(GetVertex(i)));
+    }
+    
+    return allCosts;
+}
+
+void Mesh::GeodesicDescriptor(const Vertex& vert, int k, boost::optional<std::vector<std::pair<float, unsigned int>>> costs)
+{
+    if (!costs) costs = GeodesicDistance(vert);
+
+    // Find the maximum distance to the seed vertex
+    float maxDist = 0;
+    for (int i = 0; i < numVertices; i++){
+        auto distance = (*costs)[i].first;
+        maxDist = std::max(maxDist, distance);
+    }
+
+    float stepSize = maxDist / k;
+
+    std::vector<int> histogram(k, 0);
+
+    // Create the histogram
+    for (int i = 0; i < numVertices; i++){
+        auto distance = (*costs)[i].first;
+        histogram[distance / stepSize]++;
+    }
+
+}
