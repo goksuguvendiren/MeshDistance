@@ -25,7 +25,7 @@ class Mesh
     std::vector<Triangle> faces;
     std::vector<Vertex> vertices;
 
-    std::map<int, std::vector<int>> neighbors;
+    std::map<unsigned int, std::vector<int>> neighbors;
 
     void loadOFF(std::ifstream& stream);
     void loadOBJ(std::ifstream& stream);
@@ -47,7 +47,7 @@ public:
         faces.push_back(std::move(face));
     }
     
-    int NumVertices() { return numVertices; }
+    unsigned int NumVertices() const { return numVertices; }
 
     int ID() const { return id; }
 
@@ -55,6 +55,7 @@ public:
     {
         std::vector<unsigned int> data;
         data.reserve(numFaces * 3);
+
         std::for_each(faces.begin(), faces.end(), [&data](const Triangle& tri){
             data.push_back(tri.PointA().ID());
             data.push_back(tri.PointB().ID());
@@ -64,8 +65,9 @@ public:
         return data;
     }
 
+    const std::vector<Triangle>& GetTriangles() const { return faces; }
 
-    std::vector<glm::vec3> GetVertices() const
+    std::vector<glm::vec3> GetVertexData() const
     {
         std::vector<glm::vec3> data;
 
@@ -77,18 +79,11 @@ public:
         return data;
     }
 
+    const std::vector<Vertex>& GetVertices() const { return vertices; }
+
     void Load(const std::string& path);
 
     const Vertex& GetVertex(unsigned int id) const { return vertices[id]; }
 
-    
-    std::vector<std::pair<float, unsigned int>> GeodesicDistance(const Vertex& vert);
-    std::vector<glm::vec3> ShortestPath(const Vertex &seed, std::vector<std::pair<float, unsigned int>>&& costs);
-    std::vector<std::vector<std::pair<float, unsigned int>>> GenerateDistanceMap();
-    
-    auto FindMin(const std::vector<std::pair<float, unsigned int>>& costs, const std::vector<bool>& beenProcessed) const;
-    
-    void GeodesicDescriptor(const Vertex& vert, int k, boost::optional<std::vector<std::pair<float, unsigned int>>> costs);
-
-    const std::vector<int>& GetNeighbors(unsigned int id) { return neighbors[id]; }
+    const std::vector<int>& GetNeighbors(unsigned int id) const { return neighbors.find(id)->second; }
 };

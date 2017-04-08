@@ -15,7 +15,7 @@ link_directories(rtk/build)
 
 find_package(Boost REQUIRED COMPONENTS system thread filesystem)
 
-set(SOURCE_FILES main.cpp Mesh.cpp Mesh.h Triangle.cpp Triangle.h Vertex.cpp Vertex.h)
+set(SOURCE_FILES main.cpp Mesh.cpp Mesh.h Triangle.cpp Triangle.h Vertex.cpp Vertex.h GeometryProcessing.cpp GeometryProcessing.h)
 add_executable(Geometry ${SOURCE_FILES})
 
 target_compile_definitions(Geometry PRIVATE GLFW_INCLUDE_NONE=1)

@@ -1,24 +1,25 @@
-#include <iostream>
-#include <fstream>
-#include "Mesh.h"
-#include <iomanip>
-
 #include <rtk/rtk_init.hpp>
 #include <rtk/window.hpp>
-
-#include <rtk/gl/shader.hpp>
-#include <rtk/geometry/mesh.hpp>
-#include <rtk/geometry/path.hpp>
-#include <fstream>
-#include <rtk/gl/program.hpp>
-#include <thread>
-
-#include <rtk/asset/mesh_import.hpp>
-#include <rtk/gl/path.hpp>
-#include <rtk/gl/mesh.hpp>
 #include <rtk/mesh_ops.hpp>
 
+#include <rtk/geometry/mesh.hpp>
+#include <rtk/geometry/path.hpp>
+
+#include <rtk/gl/program.hpp>
+#include <rtk/gl/path.hpp>
+#include <rtk/gl/mesh.hpp>
+#include <rtk/gl/shader.hpp>
+
+#include <rtk/asset/mesh_import.hpp>
+
 #include <thread>
+#include <fstream>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+
+#include "Mesh.h"
+#include "GeometryProcessing.h"
 
 std::string read_text_file(const std::string& path)
 {
@@ -28,49 +29,6 @@ std::string read_text_file(const std::string& path)
 
 int main()
 {
-    std::string name = "man0";
-
-    Mesh mesh;
-    mesh.Load("/Users/goksu/Documents/Geometry/inputs/geosedic/fprint_matrix/" + name + ".off");
-
-    auto start = std::chrono::steady_clock::now();
-//    for (int i = 0; i < mesh.NumVertices() && i < 1000; i++){
-//        mesh.GeodesicDistance(mesh.GetVertex(i));
-//    }
-
-//    auto sth = mesh.GeodesicDistance(mesh.GetVertex(0));
-//
-//    auto vert0 = mesh.GetVertex(0);
-//    auto vert1 = mesh.GetVertex(1);
-//
-//    std::cerr << vert0.EuclideanDistance(vert1) << "\n";
-//
-//    for (auto i : sth){
-//        std::cerr << i.first << " ";
-//    }
-
-    std::fstream out("/Users/goksu/Documents/Geometry/inputs/geosedic/fprint_matrix/" + name + "_output.txt");
-
-    auto M = mesh.GenerateDistanceMap();
-
-    for (int i = 0; i < M.size(); i++){
-        for (int j = 0; j < M.size(); j++){
-            out << M[i][j].first << " " ;
-        }
-        out << "\n";
-    }
-
-    auto dist = std::chrono::steady_clock::now();
-    std::cerr << "Loading took "
-              << std::chrono::duration_cast<std::chrono::milliseconds>(dist - start).count()
-              << "ms.\n";
-
-    return 0;
-
-}
-
-void Drawer()
-{
     using namespace rtk::literals;
     using namespace std::chrono_literals;
     rtk::rtk_init i;
@@ -78,22 +36,25 @@ void Drawer()
     rtk::window w ({ 640_px, 480_px });
 
     Mesh mesh;
-    mesh.Load("/Users/goksu/Documents/Geometry/inputs/geosedic/fprint_matrix/horse0.off");
+    mesh.Load("/Users/goksu/Documents/Geometry/inputs/iso_curve_descriptor/man2.off");
 
     rtk::geometry::mesh geomesh;
-    geomesh.set_vertices(mesh.GetVertices());
+    geomesh.set_vertices(mesh.GetVertexData());
     geomesh.set_faces(mesh.GetFaces());
 
     rtk::gl::mesh gl_mesh(geomesh);
 
     auto start = std::chrono::steady_clock::now();
-    for (int i = 0; i < mesh.NumVertices() && i < 1000; i++){
-        mesh.GeodesicDistance(mesh.GetVertex(i));
-    }
+//    auto distancemap = GeometryProcessing::GenerateDistanceMap(mesh);
+
+//    GeometryProcessing::BilateralMap(mesh, 1, 10, distancemap);
+
     auto dist = std::chrono::steady_clock::now();
     std::cerr << "Loading took "
     << std::chrono::duration_cast<std::chrono::milliseconds>(dist - start).count()
     << "ms.\n";
+
+    GeometryProcessing::GeodesicDescriptor(mesh, 80, 40, GeometryProcessing::GeodesicDistance_FibHeap(mesh, 80));
 
     rtk::gl::vertex_shader line_vs { read_text_file("../rtk/shaders/line.vert").c_str() };
     rtk::gl::fragment_shader line_fs { read_text_file("../rtk/shaders/line.frag").c_str() };
@@ -114,8 +75,15 @@ void Drawer()
     mesh_shader.attach(mesh_fs);
     mesh_shader.link();
 
+    auto vPath = GeometryProcessing::GeneratePath(mesh, 1, 10, GeometryProcessing::GeodesicDistance_FibHeap(mesh, 1));
+    std::vector<glm::vec3> path;
+
+    for(auto& pth : vPath){
+        path.push_back(pth.Data());
+    }
+
     rtk::geometry::path p;
-    p.set_vertices(std::vector<glm::vec3>{ geomesh.get_vertices()[0], geomesh.get_vertices()[1], geomesh.get_vertices()[2] });
+    p.set_vertices(path);
 
     rtk::gl::path gl_p (p);
 
